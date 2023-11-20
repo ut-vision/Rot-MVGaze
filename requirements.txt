@@ -1,0 +1,10 @@
+tqdm
+rich
+torch
+wandb
+torchvision
+omegaconf
+matplotlib
+h5py
+torchsummary
+numpy
