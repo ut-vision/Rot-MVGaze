@@ -1,0 +1,24 @@
+visualizer:
+  type: Visualizer
+  processes:
+    - type: DenormalizePixel
+      img_keys:
+        - img_0
+        - img_1
+    - type: GazePlot
+      contents:
+        img_0:
+          pred_gaze: "tab:orange"
+          gt_gaze: "tab:blue"
+    - type: AngularErrorEmbedding
+      img_key: img_0
+      pred_gaze_key: pred_gaze
+      gt_gaze_key: gt_gaze
+    - type: StereoConcatenate
+      img_keys:
+        - img_0
+        - img_1
+  writer:
+    type: PngWriter
+    img_key:  tiled
+    save_dir: ${join:${log_dir}, face_gaze}

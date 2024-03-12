@@ -1,0 +1,4 @@
+unpack_other_configs:
+  - ../configs/dataset/trainval/xgaze_${camera_type}.yaml
+  - ../configs/dataset/test/xgaze_${camera_type}.yaml
+is_cross_eval: false
