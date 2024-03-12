@@ -1,0 +1,122 @@
+train_dataset: &base_dataset
+  type: StereoGazeDataset
+  img_per_frame: ${img_per_frame}
+  indices: &base_index
+    type: XGazeIndex
+    root: ${path.xgaze.train_root}
+    subject_keys: ${if:${is_cross_eval}, null, ${xgaze_subject.train}}
+    cam_indices: ${camera.train}
+  cam_pairs: ${cam_pairs.train}
+  preprocess:
+    type: ComposePreprocess
+    preprocesses: &train_preprocess
+      - type: UnpackHdf
+      - type: AppendXGazeCalib
+        path_pattern: ${path.xgaze.calibration}
+      - type: Rename
+        name_map:
+          Distortion_Coefficients: cam_distorion
+          Camera_Matrix: cam_mat
+          cam_translation: t
+          cam_rotation: rot
+          face_patch: img
+          face_gaze: gt_gaze
+      - type: BGR2RGB
+        img_key: img
+      - type: PixelTransform
+        img_key: img
+        transforms:
+          - type: ToPILImage
+          - type: ColorJitter
+            brightness: 0.1
+            contrast: 0.1
+            saturation: 0.1
+          - type: RandomAffine
+            degrees: 0.0
+            scale: [0.99, 1.01]
+            translate: [0.01, 0.01]
+          - type: ToTensor
+          - type: Normalize
+            mean: [0.485, 0.456, 0.406]
+            std: [0.229, 0.224, 0.225]
+      - type: RandomMultiErasing
+        p: 0.5
+        proportion: [0.5, 0.6]
+        # proportion: [0.1, 0.3]
+        dot_size: [0.05, 0.3]
+      # - type: AppendLandmarks
+      #   path: ${path.xgaze.landmarks}
+      - type: UnnormalizeRot
+      - type: DeepCopy
+        src_key: rot
+        dst_key: calib_rot
+      - type: ${if:${use_calib.train}, DoNothing, CalibFromHeadpose}
+      - type: NumpyToTensor
+  stereo_preprocess: &stereo_preprocess
+    type: ComposePreprocess
+    preprocesses:
+      - type: RenameRef
+
+train_loader:
+  type: DataLoader
+  dataset: ${train_dataset}
+  generator:
+    type: Generator
+  batch_size: ${batch_size}
+  shuffle: true
+  num_workers: ${num_workers}
+  drop_last: true
+  pin_memory: true
+  
+val_dataset: &val_loader
+  <<: *base_dataset
+  cam_pairs: ${cam_pairs.val}
+  indices:
+    <<: *base_index
+    subject_keys: ${xgaze_subject.val}
+    cam_indices: ${camera.val}
+  preprocess:
+    type: ComposePreprocess
+    preprocesses:
+      - type: UnpackHdf
+      - type: AppendXGazeCalib
+        path_pattern: ${path.xgaze.calibration}
+      - type: Rename
+        name_map:
+          Distortion_Coefficients: cam_distorion
+          Camera_Matrix: cam_mat
+          cam_translation: t
+          cam_rotation: rot
+          face_patch: img
+          face_gaze: gt_gaze
+      - type: BGR2RGB
+        img_key: img
+      - type: PixelTransform
+        img_key: img
+        transforms:
+          - type: ToPILImage
+          - type: ToTensor
+          - type: Normalize
+            mean: [0.485, 0.456, 0.406]
+            std: [0.229, 0.224, 0.225]
+      # - type: AppendLandmarks
+      #   path: ${path.xgaze.landmarks}
+      - type: UnnormalizeRot
+      - type: DeepCopy
+        src_key: rot
+        dst_key: calib_rot     
+      - type: ${if:${use_calib.eval}, DoNothing, CalibFromHeadpose}
+      - type: NumpyToTensor
+  stereo_preprocess:
+    <<: *stereo_preprocess
+val_loader:
+  type: DataLoader
+  dataset: ${val_dataset}
+  generator:
+    type: Generator
+  batch_size: ${batch_size}
+  shuffle: true
+  num_workers: ${num_workers}
+  drop_last: false
+  pin_memory: true
+

@@ -1,0 +1,10 @@
+unpack_other_configs:
+  # - ../configs/split/xgaze_trainval_split_seed_0.yaml
+  - ../configs/split/xgaze_split_seed_0.yaml
+  - ../configs/dataset/xgaze.yaml
+  - ../configs/head_pose/novel_head.yaml
+  - ../configs/visualizers/${camera_type}.yaml
+  - ../configs/base.yaml
+use_calib:
+  train: true
+  eval: true # test and validation

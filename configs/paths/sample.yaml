@@ -1,0 +1,4 @@
+xgaze:
+  train_root: /path/to/your/xgaze_224/train
+  test_root: /path/to/your/xgaze_224/test
+  calibration: /path/to/your/xgaze_224/cam_calibration/cam{}.xml

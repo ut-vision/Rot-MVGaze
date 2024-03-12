@@ -1,0 +1,25 @@
+camera_type: stereo
+log_dir: ${join:${base_log_dir}, ${datetime:}}_ablation_symm
+img_per_frame: 2
+batch_size: 256
+
+num_iter: 3
+reference_decay: 1.0
+
+model:
+  type: setup_model
+  model:
+    type: RotationMultiViewEstimator
+    num_iter: ${num_iter}
+
+metrics:
+  type: Metrics
+  metrics:
+    - type: IterationLoss
+      iter_decay: 0.5
+      additional_decay: null
+      loss:
+        type: StereoL1Loss
+        reference_decay: ${reference_decay}
+        rel_weight: 0.01
+    - type: AngularError
