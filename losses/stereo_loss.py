@@ -1,12 +1,13 @@
 import abc
 from typing import Any, Dict, Optional
+
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 import torch.nn.functional as F
 
-
 from .gaze_loss import GazeLoss
+
 
 class AbstractLoss(nn.Module, metaclass=abc.ABCMeta):
     def __init__(self) -> None:
@@ -36,9 +37,9 @@ class StereoL1Loss(AbstractLoss):
         super().__init__()
         self._rel_weight = rel_weight
 
-        self._distance_metric = GazeLoss( 
-                            gaze_weight=1.0,  ## meaningless
-                            loss_type='angular') #globals()[distance_metric]
+        self._distance_metric = GazeLoss(
+            gaze_weight=1.0, loss_type="angular"  ## meaningless
+        )  # globals()[distance_metric]
 
         self._reference_decay = reference_decay
         self._pred_gaze_key = pred_gaze_key
@@ -57,7 +58,12 @@ class StereoL1Loss(AbstractLoss):
 
 
 class IterationLoss(AbstractLoss):
-    def __init__(self, loss: AbstractLoss, iter_decay: float = 1.0, additional_decay: Optional[float] = None) -> None:
+    def __init__(
+        self,
+        loss: AbstractLoss,
+        iter_decay: float = 1.0,
+        additional_decay: Optional[float] = None,
+    ) -> None:
         super().__init__()
         self._name = "Iter" + loss.name
         self._loss = loss
@@ -72,7 +78,7 @@ class IterationLoss(AbstractLoss):
         }
         if self._addtional_decay is not None:
             num_iter -= 1
-        
+
         for i in range(num_iter):
             iter_data = data[f"iter_{i}"]
             iter_data.update(commmon)
@@ -82,7 +88,7 @@ class IterationLoss(AbstractLoss):
             last_iter_data = data[f"iter_{num_iter}"]
             last_iter_data.update(commmon)
             total_loss += self._loss(last_iter_data) * self._addtional_decay
-        
+
         return total_loss
 
 
@@ -98,7 +104,6 @@ class IterationLoss(AbstractLoss):
 #         gt_gaze = data["gt_gaze"]
 #         pred_gaze = data["gaze_from_single"]
 #         return self._loss(dict(gt_gaze=gt_gaze, pred_gaze=pred_gaze))
-
 
 
 # class RandomFeatureRotationLoss(AbstractLoss):
@@ -139,7 +144,6 @@ class IterationLoss(AbstractLoss):
 #         loss_0 = self._distance_metric(pred_gaze, gt_gaze)
 #         loss_1 = self._distance_metric(pred_gaze_random, gt_gaze_random)
 #         return (loss_0 + self._alpha * loss_1).mean() * self._rel_weight
-
 
 
 # class ImplicitRotationLoss(AbstractLoss):
