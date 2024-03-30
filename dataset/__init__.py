@@ -1,2 +1,0 @@
-
-from .mpiigaze import MPIIGazeDataset

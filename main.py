@@ -51,7 +51,7 @@ def set_seed(seed_value=42):
 
 from dataset.xgaze import XGazeDataset
 from utils.augment import RandomMultiErasing
-from dataset.mpiigaze import MPIIGazeDataset
+
 
 from utils.math import rotation_matrix_2d, pitchyaw_to_vector, vector_to_pitchyaw, angular_error
 
@@ -384,6 +384,9 @@ if __name__ == '__main__':
 		ckpt_pretrained=ckpt_rotmv_xgaze2mpiinv_novel,
 		output_dir=output_dir, 
 	)
-	trainer.train()
+	if args.mode == 'train':
+		trainer.train()
+	else:
+		trainer.test(-1)
    
 

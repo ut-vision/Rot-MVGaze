@@ -1,13 +1,12 @@
 # MVGaze
-code is coming soon.
 
-## installation
+## Installation
 
 ```
 pip install -r requirements
 ```
 
-## prepare datasets
+## Prepare Datasets
 
 #### XGaze
 
@@ -16,8 +15,20 @@ pip install -r requirements
 
 ## Training
 
+```
+
+```
 
 ## Evaluation
+- download the pretrained checkpoints
+
+| Experiment | Model  | Path |
+| - | - | - |
+| XGaze to MPII-NV (known head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/1-j3jiW3oN0Hqbzz9BC58u-VXaNjL6uqf/view?usp=sharing) |
+| XGaze to MPII-NV (novel head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/1R5oU6tYno92pke9F1Kj9zHxB1l89I5nu/view?usp=sharing) |
+| MPII-NV to XGaze (known head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/1lESAPVbKjHp1v5V6fIQxoaWdQ3Pmi--6/view?usp=sharing) |
+| MPII-NV to XGaze (novel head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/1-zqoPL53y1UuOn1qgE_9dClrfhM8HKHR/view?usp=sharing) |
+
 
 ## Citation
 ```
