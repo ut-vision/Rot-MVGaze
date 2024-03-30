@@ -1,4 +1,5 @@
-# MVGaze
+# Rot-MVGaze
+This is the official PyTorch implementation of the paper [Rotation-Constrained Cross-View Feature Fusion for Multi-View Appearance-based Gaze Estimation](https://arxiv.org/abs/2305.12704).
 
 ## Installation
 
