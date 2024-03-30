@@ -15,12 +15,21 @@ pip install -r requirements
 
 ## Training
 
-```
 
+```
+python main.py \
+  -out ./logs \
+  --mode train 
 ```
 
 ## Evaluation
-- download the pretrained checkpoints
+Download the pretrained checkpoints and run
+
+```
+python main.py \
+  -out ./logs \
+  --mode test --ckpt_pretrained <path to the ckpt>
+```
 
 | Experiment | Model  | Path |
 | - | - | - |
