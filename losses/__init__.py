@@ -1,1 +1,2 @@
-from src.modules.losses.gaze_loss import GazeLoss
+from losses.gaze_loss import GazeLoss
+

@@ -11,11 +11,8 @@ import torch.utils.model_zoo as model_zoo
 from torch.utils.model_zoo import load_url as load_state_dict_from_url
 from torch.optim.lr_scheduler import StepLR
 import torchvision.models as models
+from models.resnet import resnet18, resnet50
 
-
-
-
-"""from Hisadome"""
 class BaseBlocks(nn.Module):
 	def __init__(
 		self,
@@ -87,6 +84,7 @@ class Mlp(BaseBlocks):
 			bn_type=nn.BatchNorm1d if norm_batch else None,
 		)
 
+####################################################################################################
 
 class IntensityBatchNorm(nn.Module):
 	def __init__(self, n_channels: int, momentum: float = 0.05, eps: float = 1e-4) -> None:

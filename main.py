@@ -17,7 +17,7 @@ from functools import partial
 from omegaconf import OmegaConf
 from tqdm import tqdm
 from rich.progress import track
-from datetime import datetime
+import datetime
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -29,16 +29,15 @@ import torchvision
 from torchvision import transforms
 from torchsummary import summary
 from torch.utils.tensorboard import SummaryWriter
+from typing import Optional
 
 
-from dataset.xgaze import GazeDataset
-from dataset.mpiigaze import MPIIGazeDataset
 
-from src.tools.label_transform import rotation_matrix_2d, pitchyaw_to_vector, vector_to_pitchyaw
+
 from losses.stereo_loss import IterationLoss, StereoL1Loss
 from losses.gaze_loss import GazeLoss
-from utils.gaze_utils import draw_gaze, angular_error, AverageMeter
-from utils.args import str2bool
+
+from utils.helper import AverageMeter
 
 def set_seed(seed_value=42):
 	random.seed(seed_value)
@@ -50,22 +49,37 @@ def set_seed(seed_value=42):
 		torch.backends.cudnn.deterministic = True
 		torch.backends.cudnn.benchmark = False
 
+from dataset.xgaze import XGazeDataset
+from utils.augment import RandomMultiErasing
+from dataset.mpiigaze import MPIIGazeDataset
 
-
-
+from utils.math import rotation_matrix_2d, pitchyaw_to_vector, vector_to_pitchyaw, angular_error
 
 class Trainer(nn.Module):
 
-	def __init__(self, model, train_loader, test_loader, output_dir=None, augment=False):
+	def __init__(self, 
+			  model, 
+			  metrics,
+			  train_loader, 
+			  test_loader,
+			  ckpt_pretrained=None,
+			  output_dir=None):
 		super().__init__()
 
 		self.train_loader = train_loader
 		self.test_loader = test_loader
 		self.model = model
-		self.augment = augment
 		self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+		if ckpt_pretrained is not None:
+			ckpt = torch.load(ckpt_pretrained)
+			self.model.load_state_dict(ckpt, strict=True)
+			print('load from ckpt: ', ckpt_pretrained)
+		
 		self.model.to(self.device)
+
+		
+		self.metrics = metrics 
 
 		self.optimizer = optim.Adam(self.model.parameters(), lr=1e-4)
 		self.scheduler = StepLR(self.optimizer, step_size=5, gamma=0.1)
@@ -87,71 +101,61 @@ class Trainer(nn.Module):
 			self.train_one_epoch(epoch)
 			error = self.test(epoch)
 			
-
 			if (epoch + 1) % (self.epochs//3) == 0:
 				add_file_name = 'epoch_' + str(epoch+1).zfill(2) + '_error=' + str(round(error, 2))
+
 				self.save_checkpoint(
-					{'epoch': epoch + 1,
-					'model_state': self.model.module.state_dict() if isinstance(self.model, torch.nn.DataParallel) else self.model.state_dict(),
-					'optim_state': self.optimizer.state_dict(),
-					'schedule_state': self.scheduler.state_dict()
-					}, add=add_file_name
+					state=self.model.module.state_dict() if isinstance(self.model, torch.nn.DataParallel) else self.model.state_dict(), 
+					add=add_file_name
 				)
 	
 	def prepare_dual_input(self, batch):
-		img_0 = batch['image_a'].float()  ## ( batch, 3, 224, 224)
-		gaze_0 = batch['gaze_a'].float()  ## ( batch, 2)
-		head_0 = batch['head_a'].float()  ## ( batch, 2)
+		img_0 = batch['img_0'].float().to(self.device)
+		gt_gaze = batch['gt_gaze'].float().to(self.device)
+		head_pose_0 = batch['head_pose_0'].float().to(self.device)  
 
-		img_1 = self.get_input(batch, 'image_b').squeeze(1) ## only 1 image is supported now
-		gaze_1 = self.get_label(batch, 'gaze_b').squeeze(1)
-		head_1 = self.get_label(batch, 'head_b').squeeze(1)
+		img_1 = batch['img_1'].float().to(self.device)
+		gt_gaze_1 = batch['gt_gaze_1'].float().to(self.device)
+		head_pose_1 = batch['head_pose_1'].float().to(self.device)
 
-		rot_0 = rotation_matrix_2d(head_0)  ## from canonical to head_0
-		rot_1 = rotation_matrix_2d(head_1)  ## from canonical to head_1
+		rot_0 = rotation_matrix_2d(head_pose_0)  ## from canonical to head_0
+		rot_1 = rotation_matrix_2d(head_pose_1)  ## from canonical to head_1
 
-		data = {"img_0": img_0, "rot_0": rot_0, "gt_gaze": gaze_0,
-				"img_1":img_1,  "rot_1": rot_1, "gt_gaze_1": gaze_1}
+		data = {"img_0": img_0, "rot_0": rot_0, "gt_gaze": gt_gaze,
+				"img_1":img_1,  "rot_1": rot_1, "gt_gaze_1": gt_gaze_1}
 		return data
 	
-	def training_step(self, batch, batch_idx, optimizer_idx=0):
-		
-		data = self.prepare_hisadome_input(batch)
-		data = self.model(data) 
-		loss = self.loss(data)
-		angular_error = self.angular_evaluator.gaze_angular_loss( data["pred_gaze"].detach(), data["gt_gaze"].detach() )
-		return loss
-	
 
-	def one_iteration(self, data, tag='train'):
-		l1_criterion = nn.L1Loss()
-		data = self.prepare_hisadome_input(data)
-		data = self.model(data) 
-		pred_gaze = data["pred_gaze"]
-		gaze_var = data["gt_gaze"]
-		input_var = data["img_0"]
 
-		loss_gaze = l1_criterion(pred_gaze, gaze_var)
-		error_gaze = np.mean(angular_error(pred_gaze.cpu().data.numpy(), gaze_var.cpu().data.numpy()))
-
-		if self.train_iter!=0 and self.train_iter % 10 == 0:
-			self.writer.add_scalar( f'{tag}/loss_gaze', loss_gaze.item(), self.train_iter)
-			self.writer.add_scalar( f'{tag}/error_gaze', error_gaze.item(), self.train_iter)
-			log_img = torchvision.utils.make_grid(input_var[:8], nrow=4, normalize=True)   
-			self.writer.add_image( f'{tag}/images', log_img, self.train_iter)
-
-		self.train_iter += 1
-		return loss_gaze, error_gaze
-	
 	def train_one_epoch(self, epoch):
 		print(f'Epoch: {epoch + 1} / {self.epochs}')
 		self.model.train()
 		for i, data in enumerate(track(self.train_loader, description='Training', transient=True)):
+
+			data = self.prepare_dual_input(data)
+			data = self.model(data) 
+			loss_gaze = self.metrics(data)
+
+
+			pred_gaze = data["pred_gaze"]
+			gaze_var = data["gt_gaze"]
+			input_var = data["img_0"]
+
+			error_gaze = np.mean(angular_error(pred_gaze.cpu().data.numpy(), gaze_var.cpu().data.numpy()))
+
+			if self.train_iter!=0 and self.train_iter % 10 == 0:
+				self.writer.add_scalar( 'train/loss_gaze', loss_gaze.item(), self.train_iter)
+				self.writer.add_scalar( 'train/error_gaze', error_gaze.item(), self.train_iter)
+				log_img = torchvision.utils.make_grid(input_var[:8], nrow=4, normalize=True)   
+				self.writer.add_image( 'train/images', log_img, self.train_iter)
+
 			
-			loss, _ = self.one_iteration(data)
 			self.optimizer.zero_grad()
-			loss.backward()
+			loss_gaze.backward()
 			self.optimizer.step()
+
+
+			self.train_iter += 1
 
 		self.scheduler.step()
 		
@@ -161,7 +165,19 @@ class Trainer(nn.Module):
 
 		self.model.eval()
 		for i, data in enumerate(track(self.test_loader, description='Testing', transient=True)):
-			_, error_gaze = self.one_iteration(data, 'test')
+
+			data = self.prepare_dual_input(data)
+			data = self.model(data) 
+			pred_gaze = data["pred_gaze"]
+			gaze_var = data["gt_gaze"]
+			input_var = data["img_0"]
+
+			error_gaze = np.mean(angular_error(pred_gaze.cpu().data.numpy(), gaze_var.cpu().data.numpy()))
+
+			if self.train_iter!=0 and self.train_iter % 10 == 0:
+				log_img = torchvision.utils.make_grid(input_var[:8], nrow=4, normalize=True)   
+				self.writer.add_image( 'test/images', log_img, self.train_iter)
+
 			errors_gaze.update(error_gaze.item(),  data['image'].size(0))
 
 		print(f'Epoch: {epoch + 1}, Error gaze: {errors_gaze.avg}')
@@ -204,58 +220,169 @@ def build_model_from_cfg(cfg_path):
    
 
 
+
+def get_parser(**parser_kwargs):
+	def str2bool(v):
+		if isinstance(v, bool):
+			return v
+		if v.lower() in ("yes", "true", "t", "y", "1"):
+			return True
+		elif v.lower() in ("no", "false", "f", "n", "0"):
+			return False
+		else:
+			raise argparse.ArgumentTypeError("Boolean value expected.")
+
+	parser = argparse.ArgumentParser(**parser_kwargs)
+	
+	parser.add_argument(
+		"-mode", "--mode", type=str, 
+		# choices=["train", "test",],
+		help=" train or test",
+		default=False,
+	)
+	parser.add_argument(
+		"--num_workers", type=int, help="num_workers", default=8,
+	)
+
+	parser.add_argument(
+		"--batch_size", type=int, help="batch size", default=50,
+	)
+
+	parser.add_argument(
+		"--test_batch_size", type=int, help="test_batch_size ", default=50,
+	)
+	parser.add_argument(
+		"--epochs", type=int, help="number of epochs", default=25,
+	)
+	parser.add_argument(
+		"--valid_epoch", type=int, help="frequency (num of epochs) of validating ", default=1,
+	)
+	parser.add_argument(
+		"--eval_epoch", type=int, help="frequency (num of epochs) of evaluating ", default=10,
+	)
+
+	parser.add_argument(
+		"--save_epoch", type=int, help="frequency (num of epochs) of saving ckpt ", default=10,
+	)
+
+	parser.add_argument(
+		"-out", "--output_dir", help="path of the output", # default=False,
+	)
+
+	parser.add_argument(
+		"--ckpt_resume", help="resume from checkpoint", default=None, type=str,
+	)
+	parser.add_argument(
+		"--print_freq", help="loss print frequency", default=50, type=int,
+	)
+
+	parser.add_argument(
+		"--model_cfg_path", help="path to the configuration file of the model", default=50, type=int,
+	)
+	
+	return parser
+
+def set_seed(seed):
+	torch.backends.cudnn.deterministic = True
+	torch.backends.cudnn.benchmark = False
+	torch.manual_seed(seed)
+	torch.cuda.manual_seed_all(seed)
+	np.random.seed(seed)
+	random.seed(seed)
+	# ensure reproducibility
+	os.environ["PYTHONHASHSEED"] = str(seed)
+	
 if __name__ == '__main__':
 	this_dir = os.path.dirname(os.path.realpath(__file__))
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-	parser = argparse.ArgumentParser()
-	parser.add_argument('--xgaze_augment_path', help='the path to the base directory of augmented xgaze data', required=True)
-	parser.add_argument('--mpii_path', help='the path to the base directory of mpiifacegaze', required=True)
-	parser.add_argument('--model_cfg_path', help='the path to the config file of the model', required=True)
-	parser.add_argument('--augment', type=str2bool, default=False, help='whether to use augmented data')
-	parser.add_argument('--output_dir', help='the path to the output directory', required=True)
-	args = parser.parse_args()
+	parser = get_parser()
+	args, unknown = parser.parse_known_args()
 
-	set_seed()
-	
-	output_dir = osp.join(args.output_dir, datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+	set_seed(0)
+	now = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+	now_day = datetime.datetime.now().strftime("%Y-%m-%d")
+	now_time = datetime.datetime.now().strftime("%H-%M-%S")
+	output_dir = osp.join(args.output_dir, now_day, now_time)
 
 	created_subjects = ['subject0003.h5', 'subject0004.h5', 'subject0008.h5', 'subject0033.h5', 'subject0035.h5', 
 						'subject0040.h5', 'subject0041.h5', 'subject0080.h5', 'subject0083.h5', 'subject0106.h5']
-	xgaze_dataset = GazeDataset(
-		dataset_path=args.xgaze_augment_path, 
-		color_type='bgr',
-		keys_to_use=created_subjects, 
-		image_size=224,
-		image_key='face_patch',
-		transform_Normalize={'mean': [0.485, 0.456, 0.406], 'std': [0.229, 0.224, 0.225]}, 
-		camera_tag='all',## ignore this since the augmented data already only has camera 0, 1
-		)
-	mpii_dataset = GazeDataset(
-		dataset_path=args.mpii_path,
-		color_type='bgr',
-		keys_to_use=['p00.h5', 'p01.h5', 'p02.h5', 'p03.h5', 'p04.h5',
-					 'p05.h5', 'p06.h5', 'p07.h5', 'p08.h5', 'p09.h5',
-					 'p10.h5', 'p11.h5', 'p12.h5', 'p13.h5', 'p14.h5', ],
-		image_size=224,
-		image_key='face_patch',
-		transform_Normalize={'mean': [0.485, 0.456, 0.406], 'std': [0.229, 0.224, 0.225]},
-	)
-	print('xgaze_dataset num of samples: ', len(xgaze_dataset))
-	print('mpii_dataset num of samples: ', len(mpii_dataset))
-	train_loader = DataLoader(xgaze_dataset, batch_size=200, shuffle=True, num_workers=8)
-	test_loader = DataLoader(mpii_dataset, batch_size=200, shuffle=False, num_workers=8)
 	
-	model = build_model_from_cfg(args.model_cfg_path)
 
-	summary(model, (3, 224, 224))
+
+	mean = [0.485, 0.456, 0.406]
+	std = [0.229, 0.224, 0.225]
+	image_size = 224
+	augment_transform = transforms.Compose([
+		transforms.ToPILImage(),
+		transforms.ColorJitter(brightness=1.0, contrast=0.1, saturation=0.1),
+		transforms.RandomAffine(degrees=0.0, scale=[0.99, 1.01], translate=[0.01, 0.01]),
+		transforms.ToTensor(),
+		transforms.Normalize(mean=mean, std=std),
+		transforms.Resize((image_size, image_size), antialias=True),
+		RandomMultiErasing(p=0.5, proportion=[0.5, 0.6], dot_size=[0.05, 0.3]),
+	])
+
+	test_transform = transforms.Compose([
+					transforms.ToPILImage(),
+					transforms.ToTensor(),
+					transforms.Resize((image_size, image_size), antialias=True),
+					transforms.Normalize(mean=mean, std=std)
+				])
+
+	xgaze_dataset = XGazeDataset(dataset_path="/home/jqin/wk/Datasets/xgaze_v2_128",
+									color_type='bgr',
+									image_transform=augment_transform,
+									keys_to_use=['subject0000.h5', 'subject0003.h5', 'subject0005.h5'],
+									camera_tag='novel_train',
+									stereo=True,
+									)
+
+	# print( xgaze_dataset.idx_to_kv)
+	# print( xgaze_dataset.key_idx_dict)
+
+	print('xgaze_dataset num of samples: ', len(xgaze_dataset))
+	train_loader = DataLoader(xgaze_dataset, batch_size=64, shuffle=True, num_workers=8)
+
+
+	mpii_dataset = XGazeDataset(dataset_path="/home/jqin/wk/Datasets/xgaze_v2_128",
+									color_type='bgr',
+									image_transform=augment_transform,
+									keys_to_use=['subject0000.h5', 'subject0003.h5', 'subject0005.h5'],
+									camera_tag='novel_test',
+									stereo=True,
+									)
+	
+	print('mpii_dataset num of samples: ', len(mpii_dataset))
+	test_loader = DataLoader(mpii_dataset, batch_size=128, shuffle=False, num_workers=8)
+	
+
+	from models.rot_mv import AblationFeatRotationSymm
+
+
+	model = AblationFeatRotationSymm(backbone_depth=50, num_iter=3, 
+								  share_weights=False, 
+								  encode_rotmat=False, 
+								  share_feature=False, 
+								  ignore_rotmat=False)
+
+	# model = build_model_from_cfg(args.model_cfg_path)
+
+	summary(model)
+
+	stereo_l1_loss = StereoL1Loss(rel_weight=0.01, reference_decay=1.0, distance_metric='angular_error', pred_gaze_key='pred_gaze')
+	metrics = IterationLoss(loss=stereo_l1_loss, iter_decay=0.5)
+
+
+	ckpt_rotmv_xgaze2mpiinv_novel = '/home/jqin/wk/Rot-MVGaze/checkpoints/xgaze2mpiinv/symm-iter3-xgaze2mpii-novel--1/ckpt/train-model-last.pth'
 
 	trainer = Trainer(
-		model,
-		train_loader,
-		test_loader,
+		model=model,
+		metrics=metrics,
+		train_loader=train_loader,
+		test_loader=test_loader,
+		ckpt_pretrained=ckpt_rotmv_xgaze2mpiinv_novel,
 		output_dir=output_dir, 
-		augment=args.augment,
 	)
 	trainer.train()
    
