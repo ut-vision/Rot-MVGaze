@@ -1,15 +1,10 @@
-import os
-import sys
 import numpy as np
-import math
-import copy
 from typing import Any, Callable, List, Optional, Type, Union, Dict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 from torch.utils.model_zoo import load_url as load_state_dict_from_url
-from torch.optim.lr_scheduler import StepLR
 import torchvision.models as models
 from models.resnet import resnet18, resnet50
 
@@ -165,13 +160,7 @@ class RotFeatFuser(nn.Module):
 		return out_feat.reshape(-1, 3, self.num_feat_vec)
 
 
-class TransformerRotFuser(nn.Module):
-	def __init__(self) -> None:
-		self._fuser = nn.Transformer(d_model=3, nhead=1, num_decoder_layers=6, batch_first=True)
 
-	def forward(self, feat_0: torch.Tensor, feat_1: torch.Tensor) -> torch.Tensor:
-		out = self._fuser(feat_0.transpose(-1, -2), feat_1.transpose(-1, -2))
-		return out.transpose(-1, -2)
 
 
 class Feat3dLifter(nn.Module):
@@ -184,34 +173,34 @@ class Feat3dLifter(nn.Module):
 		return self._lifter(in_feat).reshape(-1, 3, self.num_feat_vec)
 
 
-class AblationFeatRotation(nn.Module):
-	def __init__(
-		self,
-		num_iter: Optional[int] = None,
-		is_reference_first: bool = False,
-	) -> None:
-		super().__init__()
-		self._num_iter = num_iter
-		self._is_reference_first = is_reference_first
+# class AblationFeatRotation(nn.Module):
+# 	def __init__(
+# 		self,
+# 		num_iter: Optional[int] = None,
+# 		is_reference_first: bool = False,
+# 	) -> None:
+# 		super().__init__()
+# 		self._num_iter = num_iter
+# 		self._is_reference_first = is_reference_first
 
-		self._num_feat_vec = 512
-		resnet = resnet50(pretrained=True)
-		self._feat_extractor = nn.Sequential(
-			resnet,
-			nn.Flatten(start_dim=-3, end_dim=-1),
-		)
-		self._fc_dim = resnet.fc.in_features
-		self._lifter = Feat3dLifter(self._fc_dim, self._num_feat_vec)
-		self._img_fuser = ImageFeatFuser(self._fc_dim, self._num_feat_vec)
-		self._gaze_estimator = Mlp(self._num_feat_vec * 3, out_channels=[512, 2])
+# 		self._num_feat_vec = 512
+# 		resnet = resnet50(pretrained=True)
+# 		self._feat_extractor = nn.Sequential(
+# 			resnet,
+# 			nn.Flatten(start_dim=-3, end_dim=-1),
+# 		)
+# 		self._fc_dim = resnet.fc.in_features
+# 		self._lifter = Feat3dLifter(self._fc_dim, self._num_feat_vec)
+# 		self._img_fuser = ImageFeatFuser(self._fc_dim, self._num_feat_vec)
+# 		self._gaze_estimator = Mlp(self._num_feat_vec * 3, out_channels=[512, 2])
 
-	def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
-		pass
-
-
+# 	def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
+# 		pass
 
 
-class AblationFeatRotationSymm(nn.Module):
+
+
+class FeatRotationSymm(nn.Module):
 	def __init__(
 		self,
 		backbone_depth: int = 50,

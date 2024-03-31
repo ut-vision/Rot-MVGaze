@@ -177,3 +177,5 @@ output/*
 *.simgs
 
 logs/
+
+configs/data_path.yaml
