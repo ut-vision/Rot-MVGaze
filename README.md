@@ -3,19 +3,23 @@ This is the official PyTorch implementation of the paper [Rotation-Constrained C
 
 ## Installation
 
+### Clone this repo:
+
 ```
-pip install -r requirements
+git clone git@github.com:ut-vision/Rot-MVGaze.git
+cd Rot-MVGaze
+pip install -r requirements.txt
 ```
 
-## Prepare Datasets
-
+## Data
+### Prepare datasets
 #### ETH-XGaze
 Please download the normalized XGaze_224 from the official website.
 
 #### MPII-NV
-Please contact for the data synthesis.
+Please refer to [Learning-by-Novel-View-Synthesis for Full-Face Appearance-Based 3D Gaze Estimation](https://arxiv.org/abs/2201.07927) or directly contact us for the data synthesis.
 
-### `data_path.yaml`
+### Data configuration
 create `data_path.yaml`
 ```
 xgaze: <path to xgaze>
@@ -42,7 +46,7 @@ Download the pretrained checkpoints and run
 
 ```
 python main.py \
-  --exp_name <exp_name \>
+  --exp_name <exp_name> \
   --mode test --ckpt_pretrained <path to the ckpt>
 ```
 
@@ -64,3 +68,6 @@ python main.py \
 }
 ```
 <!-- ## Acknowledgements -->
+
+## Contact
+JIawei Qin: jqin@iis.u-tokyo.ac.jp
