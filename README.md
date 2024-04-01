@@ -27,13 +27,11 @@ mpiinv: <path to mpiinv>
 
 ## Training
 
-#### Exporiments
-exp_names:
+#### Exporiments names
 - `xgaze2mpiinv_known` 
 - `xgaze2mpiinv_novel`
 - `mpiinv2xgaze_known`
 - `mpiinv2xgaze_novel`
-`
 ```
 python main.py \
   --exp_name <exp_name> \
