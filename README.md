@@ -1,9 +1,8 @@
 # Rot-MVGaze
 This is the official PyTorch implementation of the paper [Rotation-Constrained Cross-View Feature Fusion for Multi-View Appearance-based Gaze Estimation](https://arxiv.org/abs/2305.12704).
+<img src='asset/teaser.jpg' width=800>
 
 ## Installation
-
-### Clone this repo:
 
 ```
 git clone git@github.com:ut-vision/Rot-MVGaze.git
@@ -19,7 +18,7 @@ Please download the normalized XGaze_224 from the official website.
 #### MPII-NV
 Please refer to [Learning-by-Novel-View-Synthesis for Full-Face Appearance-Based 3D Gaze Estimation](https://arxiv.org/abs/2201.07927) or directly contact us for the data synthesis.
 
-### Data configuration
+### Configuration
 create `data_path.yaml`
 ```
 xgaze: <path to xgaze>
@@ -44,11 +43,6 @@ python main.py \
 ## Evaluation
 Download the pretrained checkpoints and run
 
-```
-python main.py \
-  --exp_name <exp_name> \
-  --mode test --ckpt_pretrained <path to the ckpt>
-```
 
 | Experiment | Model  | Path |
 | - | - | - |
@@ -56,6 +50,12 @@ python main.py \
 | XGaze to MPII-NV (novel head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/1R5oU6tYno92pke9F1Kj9zHxB1l89I5nu/view?usp=sharing) |
 | MPII-NV to XGaze (known head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/1lESAPVbKjHp1v5V6fIQxoaWdQ3Pmi--6/view?usp=sharing) |
 | MPII-NV to XGaze (novel head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/1-zqoPL53y1UuOn1qgE_9dClrfhM8HKHR/view?usp=sharing) |
+
+```
+python main.py \
+  --exp_name <exp_name> \
+  --mode test --ckpt_pretrained <path to the ckpt>
+```
 
 
 ## Citation
