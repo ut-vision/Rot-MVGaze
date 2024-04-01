@@ -5,7 +5,6 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 
-
 from .gaze_loss import GazeLoss
 
 class AbstractLoss(nn.Module, metaclass=abc.ABCMeta):

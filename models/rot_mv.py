@@ -8,76 +8,7 @@ from torch.utils.model_zoo import load_url as load_state_dict_from_url
 import torchvision.models as models
 from models.resnet import resnet18, resnet50
 
-class BaseBlocks(nn.Module):
-	def __init__(
-		self,
-		in_channel: int,
-		out_channels: List[int],
-		kernels=None,
-		strides=None,
-		paddings=None,
-		conv_type=None,
-		activ_type=None,
-		bn_type=None,
-	):
-		if kernels is not None:
-			assert len(out_channels) == len(kernels)
-		if strides is not None:
-			assert len(out_channels) == len(strides)
-		if paddings is not None:
-			assert len(out_channels) == len(paddings)
-
-		super().__init__()
-		in_channels = [in_channel, *out_channels[:-1]]
-
-		blocks = []
-		for block_i, (in_ch, out_ch) in enumerate(zip(in_channels, out_channels)):
-			is_last_block = block_i == len(out_channels) - 1
-			conv_params = {}
-			if kernels is not None:
-				conv_params["kernel_size"] = kernels[block_i]
-			if strides is not None:
-				conv_params["stride"] = strides[block_i]
-			if paddings is not None:
-				conv_params["padding"] = paddings[block_i]
-
-			if is_last_block:
-				block = nn.Sequential(conv_type(in_ch, out_ch, **conv_params))
-			else:
-				if bn_type is None:
-					block = nn.Sequential(
-						conv_type(in_ch, out_ch, **conv_params),
-						activ_type(),
-					)
-				else:
-					block = nn.Sequential(
-						conv_type(in_ch, out_ch, **conv_params),
-						bn_type(out_ch),
-						activ_type(),
-					)
-			blocks.append(block)
-		self.blocks = nn.ModuleList(blocks)
-
-	def forward(self, x):
-		for block in self.blocks:
-			x = block(x)
-		return x
-
-
-class Mlp(BaseBlocks):
-	def __init__(self, in_channel, out_channels, norm_batch=False, active_type: Optional[nn.Module] = None):
-		if active_type is None:
-			active_type = nn.ReLU
-		super().__init__(
-			in_channel,
-			out_channels,
-			kernels=None,
-			strides=None,
-			paddings=None,
-			conv_type=nn.Linear,
-			activ_type=active_type,
-			bn_type=nn.BatchNorm1d if norm_batch else None,
-		)
+from models.backbones.blocks import Mlp
 
 ####################################################################################################
 
@@ -284,6 +215,55 @@ class FeatRotationSymm(nn.Module):
 					]
 				)
 
+# class FeatRotationSymm(nn.Module):
+# 	def __init__(
+# 		self,
+# 		backbone_depth: int = 50,
+# 		num_iter: Optional[int] = None,
+# 		share_weights: bool = False,
+# 		encode_rotmat: bool = False,
+# 		share_feature: bool = False,
+# 		ignore_rotmat: bool = False,
+# 	) -> None:
+# 		super().__init__()
+		
+# 		self._num_iter = num_iter
+# 		self._output_index = num_iter - 1
+
+# 		self._num_feat_vec = 512
+		
+# 		if backbone_depth ==50:
+# 			resnet = resnet50(pretrained=True)
+# 		elif backbone_depth==18:
+# 			resnet = resnet18(pretrained=True)
+
+# 		self._feat_extractor = nn.Sequential(
+# 			resnet,
+# 			resnet.avgpool, ### added, because my resnet forward do not pass the avgpool
+# 			nn.Flatten(start_dim=-3, end_dim=-1),
+# 		)
+# 		self._fc_dim = resnet.fc.in_features
+
+# 		self._lifter = Feat3dLifter(self._fc_dim, self._num_feat_vec)
+
+# 		assert not (ignore_rotmat and encode_rotmat)
+# 		self._ignore_rotmat = ignore_rotmat
+# 		self._encode_rotmat = encode_rotmat
+
+		
+# 		self._img_fusers = nn.ModuleList(
+# 			[
+# 				ImageFeatFuser(self._fc_dim, self._num_feat_vec)
+# 				for _ in range(num_iter)
+# 			]
+# 		)
+# 		self._gaze_estimators = nn.ModuleList(
+# 			[
+# 				Mlp(self._num_feat_vec * 3 + self._fc_dim, out_channels=[512, 2])
+# 				for _ in range(num_iter)
+# 			]
+# 		)
+
 
 
 	def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -339,9 +319,7 @@ class FeatRotationSymm(nn.Module):
 				rotatable_feat_1 = img_fuser(
 					img_feat_1, rot_01 @ rotatable_feat_0_swap
 				).reshape(-1, 3, self._num_feat_vec)
-
-			# pred_gaze_0 = gaze_estimator(rotatable_feat_0.flatten(-2, -1))
-			# pred_gaze_1 = gaze_estimator(rotatable_feat_1.flatten(-2, -1))
+				
 			if self._share_feature:
 				pred_gaze_0 = gaze_estimator(
 					torch.cat([img_feat_0, rotatable_feat_0], dim=-1).flatten(1, -1)
@@ -363,6 +341,11 @@ class FeatRotationSymm(nn.Module):
 				"pred_gaze_0": pred_gaze_0,
 				"pred_gaze_1": pred_gaze_1,
 			}
+
+			# print("pred_iter: " )
+			# for k , v in pred_iter.items():
+			# 	print(k, v.shape)
+			# 	print(  v[0] )
 
 			pred[f"iter_{f_i}"] = pred_iter
 

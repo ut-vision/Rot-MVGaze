@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import CyclicLR
 import torchvision
 from torch.utils.tensorboard import SummaryWriter
 from typing import Optional
@@ -34,32 +34,39 @@ class Trainer(nn.Module):
 			  train_loader, 
 			  test_loader,
 			  print_freq=50,
-			  ckpt_pretrained=None,
-			  output_dir=None):
+			  ckpt_pretrained=None,):
 		super().__init__()
 
+		self.config = config
 		self.train_loader = train_loader
 		self.test_loader = test_loader
 		self.model = model
 		self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-		if ckpt_pretrained is not None:
-			ckpt = torch.load(ckpt_pretrained)
-			self.model.load_state_dict(ckpt, strict=True)
-			print('load from ckpt: ', ckpt_pretrained)
 		
+		if config.ckpt_resume is not None:
+			ckpt = torch.load( config.ckpt_resume )
+			self.model.load_state_dict(ckpt, strict=True)
+			print('load from ckpt: ', config.ckpt_resume )
+
 		self.model.to(self.device)
 		summary(model)
 		
 		self.metrics = metrics 
+		self.optimizer = optim.Adam(self.model.parameters(), lr=0, weight_decay=1e-6)
 
-		self.optimizer = optim.Adam(self.model.parameters(), lr=1e-4)
-		self.scheduler = StepLR(self.optimizer, step_size=5, gamma=0.1)
+		num_step_per_epoch = len(train_loader.dataset) // config.batch_size
+		step_size_up = int(num_step_per_epoch // 2)
+		step_size_down = num_step_per_epoch - step_size_up
+		self.scheduler = CyclicLR(self.optimizer, base_lr=1e-6, max_lr=1e-3, 
+									step_size_up=step_size_up, 
+									step_size_down=step_size_down, 
+									mode='triangular2', cycle_momentum=False)
 
 		self.start_epoch = 0
 		self.epochs = 15
 		self.train_iter = 0
-		self.output_dir = output_dir
+		self.output_dir = config.output_dir
 		os.makedirs(self.output_dir, exist_ok=True)
 		
 		OmegaConf.save(config, osp.join(self.output_dir, 'config.yaml'))
@@ -74,17 +81,17 @@ class Trainer(nn.Module):
 		self.print_freq = print_freq
 
 	def train(self):
+		# error = self.test(-1)
 		for epoch in range(self.start_epoch, self.epochs):
 			self.train_one_epoch(epoch)
 			error = self.test(epoch)
 			
-			if (epoch + 1) % (self.epochs//3) == 0:
-				add_file_name = 'epoch_' + str(epoch+1).zfill(2) + '_error=' + str(round(error, 2))
-
-				self.save_checkpoint(
-					state=self.model.module.state_dict() if isinstance(self.model, torch.nn.DataParallel) else self.model.state_dict(), 
-					add=add_file_name
-				)
+			# if (epoch + 1) % (self.epochs//3) == 0:
+			# 	add_file_name = 'epoch_' + str(epoch+1).zfill(2) + '_error=' + str(round(error, 2))
+			# 	self.save_checkpoint(
+			# 		state=self.model.module.state_dict() if isinstance(self.model, torch.nn.DataParallel) else self.model.state_dict(), 
+			# 		add=add_file_name
+			# 	)
 	
 	def prepare_dual_input(self, batch):
 		img_0 = batch['img_0'].float().to(self.device)
@@ -99,20 +106,17 @@ class Trainer(nn.Module):
 		rot_1 = rotation_matrix_2d(head_pose_1)  ## from canonical to head_1
 
 		data = {"img_0": img_0, "rot_0": rot_0, "gt_gaze": gt_gaze,
-				"img_1":img_1,  "rot_1": rot_1, "gt_gaze_1": gt_gaze_1}
+				"img_1": img_1, "rot_1": rot_1, "gt_gaze_1": gt_gaze_1}
 		return data
 	
-
 
 	def train_one_epoch(self, epoch):
 		print(f'Epoch: {epoch + 1} / {self.epochs}')
 		self.model.train()
 		for i, data in enumerate(track(self.train_loader, description='Training', transient=True)):
-
 			data = self.prepare_dual_input(data)
 			data = self.model(data) 
 			loss_gaze = self.metrics(data)
-
 
 			pred_gaze = data["pred_gaze"]
 			gaze_var = data["gt_gaze"]
@@ -121,9 +125,13 @@ class Trainer(nn.Module):
 			error_gaze = np.mean(angular_error(pred_gaze.cpu().data.numpy(), gaze_var.cpu().data.numpy()))
 
 			if self.train_iter!=0 and self.train_iter % self.print_freq == 0:
+				print('train on iter: ', self.train_iter)
+				print('loss_gaze: ', loss_gaze.item())
+				print('error_gaze: ', error_gaze.item())
+
 				self.writer.add_scalar( 'train/loss_gaze', loss_gaze.item(), self.train_iter)
-				self.writer.add_scalar( 'train/error_gaze', error_gaze.item(), self.train_iter)
-				log_img = torchvision.utils.make_grid(input_var[:8], nrow=4, normalize=True)   
+				self.writer.add_scalar( 'train/error_gaze',  error_gaze.item(), self.train_iter)
+				log_img = torchvision.utils.make_grid(input_var[:8], nrow=4, normalize=True)  
 				self.writer.add_image( 'train/images', log_img, self.train_iter)
 
 			self.optimizer.zero_grad()
@@ -136,6 +144,7 @@ class Trainer(nn.Module):
 		
 
 	def test(self, epoch):
+
 		avg_error_gaze = AverageMeter()
 		self.model.eval()
 		for i, data in enumerate(track(self.test_loader, description='Testing', transient=True)):
@@ -144,15 +153,18 @@ class Trainer(nn.Module):
 			pred_gaze = data["pred_gaze"]
 			gaze_var = data["gt_gaze"]
 			input_var = data["img_0"]
+			batch_size = input_var.size(0)
 
 			error_gaze = np.mean(angular_error(pred_gaze.cpu().data.numpy(), gaze_var.cpu().data.numpy()))
+
+			avg_error_gaze.update(error_gaze.item(), batch_size)
+
 
 			if i !=0 and i % self.print_freq == 0:
 				log_img = torchvision.utils.make_grid(input_var[:8], nrow=4, normalize=True)   
 				self.writer.add_image( 'test/images', log_img, self.train_iter)
-			avg_error_gaze.update(error_gaze,  gaze_var.size(0))
 		
-		msg = 'test on epoch {}, error: {}\n'.format(epoch, avg_error_gaze.avg)
+		msg = 'test on epoch {}, error: {}\n'.format(epoch + 1, avg_error_gaze.avg)
 		print( msg )
 		self.writer.add_scalar('test/epoch_error_gaze', avg_error_gaze.avg, epoch)
 		with open(osp.join(self.output_dir, 'test_results.txt'), 'a') as f:
