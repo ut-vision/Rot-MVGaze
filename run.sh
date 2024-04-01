@@ -14,6 +14,7 @@
 cd /home/jqin/wk/Rot-MVGaze
 
 python main.py \
+    --exp_name 'xgaze_novel' \
     --mode train \
     -out ./logs \
     --save_epoch 1

@@ -9,18 +9,32 @@ pip install -r requirements
 
 ## Prepare Datasets
 
-#### XGaze
+#### ETH-XGaze
+Please download the normalized XGaze_224 from the official website.
 
 #### MPII-NV
+Please contact for the data synthesis.
 
+### `data_path.yaml`
+create `data_path.yaml`
+```
+xgaze: <path to xgaze>
+mpiinv: <path to mpiinv>
+```
 
 ## Training
 
-
+#### Exporiments
+exp_names:
+- `xgaze2mpiinv_known` 
+- `xgaze2mpiinv_novel`
+- `mpiinv2xgaze_known`
+- `mpiinv2xgaze_novel`
+`
 ```
 python main.py \
-  -out ./logs \
-  --mode train 
+  --exp_name <exp_name> \
+  --mode train \
 ```
 
 ## Evaluation
@@ -28,7 +42,7 @@ Download the pretrained checkpoints and run
 
 ```
 python main.py \
-  -out ./logs \
+  --exp_name <exp_name \>
   --mode test --ckpt_pretrained <path to the ckpt>
 ```
 
@@ -49,4 +63,4 @@ python main.py \
   year={2023}
 }
 ```
-## Acknowledgements
+<!-- ## Acknowledgements -->

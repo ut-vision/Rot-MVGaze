@@ -34,7 +34,7 @@ class Trainer(nn.Module):
 			  train_loader, 
 			  test_loader,
 			  print_freq=50,
-			  ckpt_pretrained=None,):
+			  ckpt_resume=None,):
 		super().__init__()
 
 		self.config = config
@@ -86,12 +86,13 @@ class Trainer(nn.Module):
 			self.train_one_epoch(epoch)
 			error = self.test(epoch)
 			
-			# if (epoch + 1) % (self.epochs//3) == 0:
-			# 	add_file_name = 'epoch_' + str(epoch+1).zfill(2) + '_error=' + str(round(error, 2))
-			# 	self.save_checkpoint(
-			# 		state=self.model.module.state_dict() if isinstance(self.model, torch.nn.DataParallel) else self.model.state_dict(), 
-			# 		add=add_file_name
-			# 	)
+			
+			if (epoch + 1) % self.config.save_epoch == 0:
+				add_file_name = 'epoch_' + str(epoch+1).zfill(2) + '_error=' + str(round(error, 2))
+				self.save_checkpoint(
+					state=self.model.module.state_dict() if isinstance(self.model, torch.nn.DataParallel) else self.model.state_dict(), 
+					add=add_file_name
+				)
 	
 	def prepare_dual_input(self, batch):
 		img_0 = batch['img_0'].float().to(self.device)

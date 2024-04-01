@@ -79,6 +79,19 @@ def get_parser(**parser_kwargs):
 	parser.add_argument(
 		"--mode", type=str, choices=["train", "test",], default="train",
 	)
+	parser.add_argument(
+		"--exp_name", type=str,
+	)
+	parser.add_argument(
+		"-out", "--output_dir",  type=str, help="path of the output", default='./logs',
+	)
+
+	parser.add_argument(
+		"--ckpt_resume", help="resume from checkpoint", default=None, type=str,
+	)
+	parser.add_argument(
+		"--print_freq", help="loss print frequency", default=50, type=int,
+	)
 
 	parser.add_argument(
 		"--seed", type=int, help="random seed", default=0,
@@ -101,17 +114,6 @@ def get_parser(**parser_kwargs):
 
 	parser.add_argument(
 		"--save_epoch", type=int, help="frequency (num of epochs) of saving ckpt ", default=10,
-	)
-
-	parser.add_argument(
-		"-out", "--output_dir", help="path of the output", # default=False,
-	)
-
-	parser.add_argument(
-		"--ckpt_resume", help="resume from checkpoint", default=None, type=str,
-	)
-	parser.add_argument(
-		"--print_freq", help="loss print frequency", default=50, type=int,
 	)
 	
 	return parser
@@ -206,7 +208,7 @@ if __name__ == '__main__':
 
 	# train_dataset, test_dataset = configure_dataset('xgaze2mpiinv_novel')
 
-	train_dataset, test_dataset = configure_dataset('xgaze_novel')		
+	train_dataset, test_dataset = configure_dataset(config.exp_name)	
 
 	train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers)
 	test_loader = DataLoader(test_dataset, batch_size=config.test_batch_size, shuffle=False, num_workers=config.num_workers)
@@ -224,23 +226,23 @@ if __name__ == '__main__':
 
 	stereo_l1_loss = StereoL1Loss(rel_weight=0.01, reference_decay=1.0, distance_metric='angular_error', pred_gaze_key='pred_gaze')
 	metrics = IterationLoss(loss=stereo_l1_loss, iter_decay=0.5)
-
+ 
 	trainer = Trainer(
 		config=config,
 		model=model,
 		metrics=metrics,
 		train_loader=train_loader,
 		test_loader=test_loader,
-		# ckpt_pretrained=ckpt_rotmv_xgaze2mpiinv_novel,
+		# ckpt_resume=config.ckpt_resume,
 	)
 
 	if args.mode == 'train':
 		trainer.train()
 	else:
-		assert config.ckpt_pretrained is not None, "ckpt_pretrained is None"
-		ckpt = torch.load(config.ckpt_pretrained)
+		assert config.ckpt_resume is not None, "ckpt_resume is None"
+		ckpt = torch.load(config.ckpt_resume)
 		trainer.model.load_state_dict(ckpt, strict=True)
-		print('load from ckpt: ', config.ckpt_pretrained)
+		print('load from ckpt: ', config.ckpt_resume)
 		trainer.test(-1)
    
 
