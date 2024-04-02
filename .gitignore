@@ -179,3 +179,5 @@ output/*
 logs/
 
 configs/data_path.yaml
+
+*.sh
