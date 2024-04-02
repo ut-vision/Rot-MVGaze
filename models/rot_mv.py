@@ -7,10 +7,8 @@ import torch.utils.model_zoo as model_zoo
 from torch.utils.model_zoo import load_url as load_state_dict_from_url
 import torchvision.models as models
 from models.resnet import resnet18, resnet50
-
 from models.backbones.blocks import Mlp
 
-####################################################################################################
 
 class IntensityBatchNorm(nn.Module):
 	def __init__(self, n_channels: int, momentum: float = 0.05, eps: float = 1e-4) -> None:
@@ -43,16 +41,12 @@ class ImageFeatFuser(nn.Module):
 			self.in_channel, [self.in_channel, num_feat_vec * 3]
 			# self.in_channel, [self.in_channel, self.in_channel, num_feat_vec * 3]
 		)
-		# self._bn_in = IntensityBatchNorm(num_feat_vec)
-		# self._bn_out = IntensityBatchNorm(num_feat_vec)
-
 	def forward(
 		self, img_feat: torch.Tensor, rotatable_feat: torch.Tensor
 	) -> torch.Tensor:
 		# rotatable_feat = self._bn_in(rotatable_feat)
 		in_feat = torch.cat([img_feat, rotatable_feat.flatten(-2, -1)], dim=-1)
 		out_feat = self._fuser(in_feat)
-		# out_feat = self._bn_out(out_feat.reshape(-1, 3, self.num_feat_vec)).flatten(-2, -1)
 		return out_feat
 
 	
@@ -102,32 +96,6 @@ class Feat3dLifter(nn.Module):
 
 	def forward(self, in_feat: torch.Tensor) -> torch.Tensor:
 		return self._lifter(in_feat).reshape(-1, 3, self.num_feat_vec)
-
-
-# class AblationFeatRotation(nn.Module):
-# 	def __init__(
-# 		self,
-# 		num_iter: Optional[int] = None,
-# 		is_reference_first: bool = False,
-# 	) -> None:
-# 		super().__init__()
-# 		self._num_iter = num_iter
-# 		self._is_reference_first = is_reference_first
-
-# 		self._num_feat_vec = 512
-# 		resnet = resnet50(pretrained=True)
-# 		self._feat_extractor = nn.Sequential(
-# 			resnet,
-# 			nn.Flatten(start_dim=-3, end_dim=-1),
-# 		)
-# 		self._fc_dim = resnet.fc.in_features
-# 		self._lifter = Feat3dLifter(self._fc_dim, self._num_feat_vec)
-# 		self._img_fuser = ImageFeatFuser(self._fc_dim, self._num_feat_vec)
-# 		self._gaze_estimator = Mlp(self._num_feat_vec * 3, out_channels=[512, 2])
-
-# 	def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
-# 		pass
-
 
 
 
@@ -214,56 +182,6 @@ class FeatRotationSymm(nn.Module):
 						for _ in range(num_iter)
 					]
 				)
-
-# class FeatRotationSymm(nn.Module):
-# 	def __init__(
-# 		self,
-# 		backbone_depth: int = 50,
-# 		num_iter: Optional[int] = None,
-# 		share_weights: bool = False,
-# 		encode_rotmat: bool = False,
-# 		share_feature: bool = False,
-# 		ignore_rotmat: bool = False,
-# 	) -> None:
-# 		super().__init__()
-		
-# 		self._num_iter = num_iter
-# 		self._output_index = num_iter - 1
-
-# 		self._num_feat_vec = 512
-		
-# 		if backbone_depth ==50:
-# 			resnet = resnet50(pretrained=True)
-# 		elif backbone_depth==18:
-# 			resnet = resnet18(pretrained=True)
-
-# 		self._feat_extractor = nn.Sequential(
-# 			resnet,
-# 			resnet.avgpool, ### added, because my resnet forward do not pass the avgpool
-# 			nn.Flatten(start_dim=-3, end_dim=-1),
-# 		)
-# 		self._fc_dim = resnet.fc.in_features
-
-# 		self._lifter = Feat3dLifter(self._fc_dim, self._num_feat_vec)
-
-# 		assert not (ignore_rotmat and encode_rotmat)
-# 		self._ignore_rotmat = ignore_rotmat
-# 		self._encode_rotmat = encode_rotmat
-
-		
-# 		self._img_fusers = nn.ModuleList(
-# 			[
-# 				ImageFeatFuser(self._fc_dim, self._num_feat_vec)
-# 				for _ in range(num_iter)
-# 			]
-# 		)
-# 		self._gaze_estimators = nn.ModuleList(
-# 			[
-# 				Mlp(self._num_feat_vec * 3 + self._fc_dim, out_channels=[512, 2])
-# 				for _ in range(num_iter)
-# 			]
-# 		)
-
 
 
 	def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
