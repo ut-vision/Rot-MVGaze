@@ -58,11 +58,12 @@ python main.py \
 
 ## Citation
 ```
-@article{hisadome2023rotation,
+@inproceedings{hisadome2024rotation,
   title={Rotation-Constrained Cross-View Feature Fusion for Multi-View Appearance-based Gaze Estimation},
   author={Hisadome, Yoichiro and Wu, Tianyi and Qin, Jiawei and Sugano, Yusuke},
-  journal={arXiv preprint arXiv:2305.12704},
-  year={2023}
+  booktitle={Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision},
+  pages={5985--5994},
+  year={2024}
 }
 ```
 <!-- ## Acknowledgements -->
