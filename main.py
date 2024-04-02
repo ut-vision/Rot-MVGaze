@@ -220,9 +220,6 @@ if __name__ == '__main__':
 	args.output_dir = osp.join(args.output_dir, now_day, now_time)
 
 	config = OmegaConf.create(vars(args))
-	
-
-	# train_dataset, test_dataset = configure_dataset('xgaze2mpiinv_novel')
 
 	train_dataset, test_dataset = configure_dataset(config.exp_name)	
 
