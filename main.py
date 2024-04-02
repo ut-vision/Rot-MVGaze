@@ -176,33 +176,33 @@ def configure_dataset(exp_name):
 							stereo=True,
 							)
 		test_dataset = GazeDataset(
-						dataset_name='xgaze',
-						dataset_path=data_path_dict['xgaze'],
-						color_type='bgr',
-						image_transform=test_transform,
-						keys_to_use=xgaze_subject,
-						camera_tag=camera_type_test,
-						stereo=True,
-						)
+							dataset_name='xgaze',
+							dataset_path=data_path_dict['xgaze'],
+							color_type='bgr',
+							image_transform=test_transform,
+							keys_to_use=xgaze_subject,
+							camera_tag=camera_type_test,
+							stereo=True,
+							)
 	elif dataset_setting == 'mpiinv':
 		train_dataset = GazeDataset(
-						dataset_name='mpiinv',
-						dataset_path=data_path_dict['mpiinv'],
-						color_type='rgb',
-						image_transform=augment_transform,
-						keys_to_use=mpiinv_subject,
-						camera_tag=camera_type_train,
-						stereo=True,
-						)
+							dataset_name='mpiinv',
+							dataset_path=data_path_dict['mpiinv'],
+							color_type='rgb',
+							image_transform=augment_transform,
+							keys_to_use=mpiinv_subject,
+							camera_tag=camera_type_train,
+							stereo=True,
+							)
 		test_dataset = GazeDataset(
-						dataset_name='mpiinv',
-						dataset_path=data_path_dict['mpiinv'],
-						color_type='rgb',
-						image_transform=test_transform,
-						keys_to_use=mpiinv_subject,
-						camera_tag=camera_type_test,
-						stereo=True,
-						)
+							dataset_name='mpiinv',
+							dataset_path=data_path_dict['mpiinv'],
+							color_type='rgb',
+							image_transform=test_transform,
+							keys_to_use=mpiinv_subject,
+							camera_tag=camera_type_test,
+							stereo=True,
+							)
 	else:
 		raise NotImplementedError
 	

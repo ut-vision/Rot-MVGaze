@@ -12,10 +12,8 @@ import torchvision
 from torchvision import transforms
 from torch.utils.data import Dataset
 
-
 from omegaconf import OmegaConf, ListConfig, DictConfig
 from typing import List, Dict, Any
-
 from rich.progress import track
 
 class GazeDataset(Dataset):
