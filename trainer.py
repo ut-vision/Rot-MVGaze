@@ -95,6 +95,7 @@ class Trainer(nn.Module):
 					add=add_file_name
 				)
 	
+	
 	def prepare_dual_input(self, batch):
 		img_0 = batch['img_0'].float().to(self.device)
 		gt_gaze = batch['gt_gaze'].float().to(self.device)

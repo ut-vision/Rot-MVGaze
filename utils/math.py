@@ -185,7 +185,7 @@ def angular_error_torch(a, b):
 # 	rot_gaze = vector_to_pitchyaw(vec.squeeze(-1))
 # 	return rot_gaze
 
-
+ 
 
 
 def rotation_matrix_2d( pitch_yaw, inverse=False):

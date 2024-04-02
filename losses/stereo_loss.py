@@ -22,7 +22,6 @@ class AbstractLoss(nn.Module, metaclass=abc.ABCMeta):
     def forward(self, data: Dict[str, Any]) -> torch.Tensor:
         pass
 
-
 class StereoL1Loss(AbstractLoss):
     def __init__(
         self,

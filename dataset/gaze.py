@@ -97,8 +97,7 @@ class GazeDataset(Dataset):
 			if self.hdfs[num_i]:
 				self.hdfs[num_i].close()
 				self.hdfs[num_i] = None
-
-
+ 
 	@property
 	def archives(self):
 		if self.__hdfs is None: # lazy loading here!
