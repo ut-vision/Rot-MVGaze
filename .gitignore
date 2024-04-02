@@ -176,7 +176,7 @@ output/*
 *.simg
 *.simgs
 
-logs/
+logs/*
 
 configs/data_path.yaml
 
