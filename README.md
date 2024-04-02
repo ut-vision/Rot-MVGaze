@@ -19,7 +19,7 @@ Please download the normalized XGaze_224 from the official website.
 Please refer to [Learning-by-Novel-View-Synthesis for Full-Face Appearance-Based 3D Gaze Estimation](https://arxiv.org/abs/2201.07927) or directly contact us for the data synthesis.
 
 ### Configuration
-create `data_path.yaml`
+create `configs/data_path.yaml`
 ```
 xgaze: <path to xgaze>
 mpiinv: <path to mpiinv>
