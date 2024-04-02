@@ -68,4 +68,4 @@ python main.py \
 <!-- ## Acknowledgements -->
 
 ## Contact
-JIawei Qin: jqin@iis.u-tokyo.ac.jp
+Jiawei Qin: jqin@iis.u-tokyo.ac.jp
