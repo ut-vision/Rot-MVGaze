@@ -22,7 +22,7 @@ from torchsummary import summary
 from losses.stereo_loss import IterationLoss, StereoL1Loss
 from losses.gaze_loss import GazeLoss
 
-from utils.helper import AverageMeter
+from utils.helper import AverageMeter, recover_image
 from utils.math import rotation_matrix_2d, pitchyaw_to_vector, vector_to_pitchyaw, angular_error
 
 class Trainer(nn.Module):
@@ -74,6 +74,9 @@ class Trainer(nn.Module):
 		self.ckpt_dir = osp.join(self.output_dir, 'ckpt')
 		os.makedirs(self.ckpt_dir, exist_ok=True)
 
+		self.image_dir = osp.join(self.output_dir, 'image')
+		os.makedirs(self.image_dir, exist_ok=True)
+
 		self.tensorboard_dir = osp.join(self.output_dir, 'tensorboard')
 		os.makedirs(self.tensorboard_dir, exist_ok=True)
 		self.writer = SummaryWriter(log_dir=self.tensorboard_dir)
@@ -81,7 +84,7 @@ class Trainer(nn.Module):
 		self.print_freq = print_freq
 
 	def train(self):
-		# error = self.test(-1)
+		error = self.test(-1)
 		for epoch in range(self.start_epoch, self.epochs):
 			self.train_one_epoch(epoch)
 			error = self.test(epoch)
@@ -108,6 +111,7 @@ class Trainer(nn.Module):
 
 		data = {"img_0": img_0, "rot_0": rot_0, "gt_gaze": gt_gaze,
 				"img_1": img_1, "rot_1": rot_1, "gt_gaze_1": gt_gaze_1}
+		data.update({"idx_0": batch['idx_0'], "idx_1": batch['idx_1']})
 		return data
 	
 
@@ -121,7 +125,6 @@ class Trainer(nn.Module):
 
 			pred_gaze = data["pred_gaze"]
 			gaze_var = data["gt_gaze"]
-			input_var = data["img_0"]
 
 			error_gaze = np.mean(angular_error(pred_gaze.cpu().data.numpy(), gaze_var.cpu().data.numpy()))
 
@@ -129,11 +132,12 @@ class Trainer(nn.Module):
 				print('train on iter: ', self.train_iter)
 				print('loss_gaze: ', loss_gaze.item())
 				print('error_gaze: ', error_gaze.item())
-
 				self.writer.add_scalar( 'train/loss_gaze', loss_gaze.item(), self.train_iter)
 				self.writer.add_scalar( 'train/error_gaze',  error_gaze.item(), self.train_iter)
-				log_img = torchvision.utils.make_grid(input_var[:8], nrow=4, normalize=True)  
-				self.writer.add_image( 'train/images', log_img, self.train_iter)
+
+				samples_to_show = min(8, gaze_var.size(0))
+				self.writer.add_image( 'train/images_0', torchvision.utils.make_grid(data["img_0"][:samples_to_show], nrow=(samples_to_show//2), normalize=True), self.train_iter)
+				self.writer.add_image( 'train/images_1', torchvision.utils.make_grid(data["img_1"][:samples_to_show], nrow=(samples_to_show//2), normalize=True), self.train_iter)
 
 			self.optimizer.zero_grad()
 			loss_gaze.backward()
@@ -157,13 +161,12 @@ class Trainer(nn.Module):
 			batch_size = input_var.size(0)
 
 			error_gaze = np.mean(angular_error(pred_gaze.cpu().data.numpy(), gaze_var.cpu().data.numpy()))
-
 			avg_error_gaze.update(error_gaze.item(), batch_size)
 
-
-			if i !=0 and i % self.print_freq == 0:
-				log_img = torchvision.utils.make_grid(input_var[:8], nrow=4, normalize=True)   
-				self.writer.add_image( 'test/images', log_img, self.train_iter)
+			if i != 0 and i % self.print_freq == 0:
+				samples_to_show = min(8, batch_size)
+				self.writer.add_image( 'test/images_0', torchvision.utils.make_grid(data["img_0"][:samples_to_show], nrow=(samples_to_show//2), normalize=True), i)
+				self.writer.add_image( 'test/images_1', torchvision.utils.make_grid(data["img_1"][:samples_to_show], nrow=(samples_to_show//2), normalize=True), i)
 		
 		msg = 'test on epoch {}, error: {}\n'.format(epoch + 1, avg_error_gaze.avg)
 		print( msg )

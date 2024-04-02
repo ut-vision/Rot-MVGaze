@@ -18,7 +18,7 @@ from typing import List, Dict, Any
 
 from rich.progress import track
 
-class XGazeDataset(Dataset):
+class GazeDataset(Dataset):
 	def __init__(self, 
 				dataset_path: str, 
 				color_type,
@@ -126,6 +126,7 @@ class XGazeDataset(Dataset):
 			'img_0': self.preprocess_image(image),
 			'gt_gaze': gaze,
 			'head_pose_0': head_pose,
+			'idx_0': idx,
 		}
 		
 		if self.stereo:
@@ -136,6 +137,7 @@ class XGazeDataset(Dataset):
 				'img_1': self.preprocess_image(self.hdf['face_patch'][idx_b, :]),
 				'gt_gaze_1': gt_gaze_1,
 				'head_pose_1': head_pose_1,
+				'idx_1': idx_b,
 			})
 
 		return data

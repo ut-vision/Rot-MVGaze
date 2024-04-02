@@ -28,7 +28,7 @@ from losses.stereo_loss import IterationLoss, StereoL1Loss
 
 from utils.helper import AverageMeter
 
-from dataset.xgaze import XGazeDataset
+from dataset.gaze import GazeDataset
 from utils.augment import RandomMultiErasing
 
 from models.rot_mv import FeatRotationSymm
@@ -62,6 +62,31 @@ xgaze_subject = OmegaConf.load(osp.join(proj_dir, 'configs/subject/xgaze.yaml'))
 mpiinv_subject = OmegaConf.load(osp.join(proj_dir, 'configs/subject/mpiinv.yaml'))['subject']
 
 
+
+
+
+def recover_image( image_tensor, MEAN, STD):
+	"""
+	read a tensor and recover it to image in cv2 format
+	args:
+		image_tensor: [C, H, W] or [B, C, H, W]
+	return:
+		image_save: [B, H, W, C]
+	"""
+	if image_tensor.ndim == 3:
+		image_tensor = image_tensor.unsqueeze(0)
+
+	x = torch.mul(image_tensor, torch.FloatTensor(STD).view(3,1,1).to(image_tensor.device))
+	x = torch.add(x, torch.FloatTensor(MEAN).view(3,1,1).to(image_tensor.device) )
+	x = x.data.cpu().numpy()
+	# [C, H, W] -> [H, W, C]
+	image_rgb = np.transpose(x, (0, 2, 3, 1))
+	# RGB -> BGR
+	image_bgr = image_rgb[:, :, :, [2,1,0]]
+	# float -> int
+	image_save = np.clip(image_bgr*255, 0, 255).astype('uint8')
+
+	return image_save
 
 def get_parser(**parser_kwargs):
 	def str2bool(v):
@@ -128,15 +153,15 @@ def configure_dataset(exp_name):
 		camera_type_train, camera_type_test = 'novel_train', 'novel_test'
 
 	if dataset_setting == 'xgaze2mpiinv':
-		train_dataset = XGazeDataset(dataset_path=data_path_dict['xgaze'],
+		train_dataset = GazeDataset(dataset_path=data_path_dict['xgaze'],
 								color_type='bgr',
 								image_transform=augment_transform,
 								keys_to_use=xgaze_subject[:1],
 								camera_tag=camera_type_train,
 								stereo=True,
 								)
-		test_dataset = XGazeDataset(dataset_path=data_path_dict['mpiinv'],
-									color_type='bgr',
+		test_dataset = GazeDataset(dataset_path=data_path_dict['mpiinv'],
+									color_type='rgb',
 									image_transform=test_transform,
 									keys_to_use=mpiinv_subject[:1],
 									camera_tag=camera_type_test,
@@ -144,29 +169,29 @@ def configure_dataset(exp_name):
 									)
 
 	elif dataset_setting == 'mpiinv2xgaze':
-		train_dataset = XGazeDataset(dataset_path=data_path_dict['mpiinv'],
-								color_type='bgr',
+		train_dataset = GazeDataset(dataset_path=data_path_dict['mpiinv'],
+								color_type='rgb',
 								image_transform=augment_transform,
 								keys_to_use=mpiinv_subject,
 								camera_tag=camera_type_train,
 								stereo=True,
 								)
-		test_dataset = XGazeDataset(dataset_path=data_path_dict['xgaze'],
+		test_dataset = GazeDataset(dataset_path=data_path_dict['xgaze'],
 									color_type='bgr',
 									image_transform=test_transform,
 									keys_to_use=xgaze_subject,
 									camera_tag=camera_type_test,
 									stereo=True,
 									)
-	if dataset_setting == 'xgaze':
-		train_dataset = XGazeDataset(dataset_path=data_path_dict['xgaze'],
+	elif dataset_setting == 'xgaze':
+		train_dataset = GazeDataset(dataset_path=data_path_dict['xgaze'],
 								color_type='bgr',
 								image_transform=augment_transform,
 								keys_to_use=xgaze_subject[:5],
 								camera_tag=camera_type_train,
 								stereo=True,
 								)
-		test_dataset = XGazeDataset(dataset_path=data_path_dict['xgaze'],
+		test_dataset = GazeDataset(dataset_path=data_path_dict['xgaze'],
 								color_type='bgr',
 								image_transform=test_transform,
 								keys_to_use=xgaze_subject[5:6],
@@ -174,15 +199,15 @@ def configure_dataset(exp_name):
 								stereo=True,
 								)
 	elif dataset_setting == 'mpiinv':
-		train_dataset = XGazeDataset(dataset_path=data_path_dict['mpiinv'],
-								color_type='bgr',
+		train_dataset = GazeDataset(dataset_path=data_path_dict['mpiinv'],
+								color_type='rgb',
 								image_transform=augment_transform,
 								keys_to_use=mpiinv_subject[:1],
 								camera_tag=camera_type_train,
 								stereo=True,
 								)
-		test_dataset = XGazeDataset(dataset_path=data_path_dict['mpiinv'],
-								color_type='bgr',
+		test_dataset = GazeDataset(dataset_path=data_path_dict['mpiinv'],
+								color_type='rgb',
 								image_transform=test_transform,
 								keys_to_use=mpiinv_subject[1:2],
 								camera_tag=camera_type_test,

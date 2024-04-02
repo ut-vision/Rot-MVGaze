@@ -342,11 +342,6 @@ class FeatRotationSymm(nn.Module):
 				"pred_gaze_1": pred_gaze_1,
 			}
 
-			# print("pred_iter: " )
-			# for k , v in pred_iter.items():
-			# 	print(k, v.shape)
-			# 	print(  v[0] )
-
 			pred[f"iter_{f_i}"] = pred_iter
 
 		pred["pred_gaze"] = pred[f"iter_{self._output_index}"]["pred_gaze_0"]

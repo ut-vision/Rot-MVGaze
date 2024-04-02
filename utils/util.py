@@ -27,4 +27,3 @@ def build_model_from_cfg(cfg_path):
 	MODEL = getattr(importlib.import_module(module, package=None), cls)
 	model = MODEL(**cfg.get("params", dict()))
 	return model
-   
