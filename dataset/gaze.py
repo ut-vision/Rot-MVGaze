@@ -20,6 +20,7 @@ from rich.progress import track
 
 class GazeDataset(Dataset):
 	def __init__(self, 
+			  	dataset_name: str,
 				dataset_path: str, 
 				color_type,
 				image_transform,
@@ -27,7 +28,8 @@ class GazeDataset(Dataset):
 				camera_tag='all',
 				stereo=False,
 				):
-
+		self.dataset_name = dataset_name
+		assert self.dataset_name in ['xgaze', 'mpiinv'], 'currently only support xgaze and mpiinv'
 		self.stereo = stereo
 		self.path = dataset_path
 		self.hdfs = {}
@@ -58,7 +60,7 @@ class GazeDataset(Dataset):
 
 		
 		self.idx_to_kv = []
-		for num_i in track( range(0, len(self.selected_keys)) , description="Building xgaze pair index"):
+		for num_i in track( range(0, len(self.selected_keys)) , description="Building stereo pair index"):
 			n = self.hdfs[num_i]['face_patch'].shape[0]
 			start_idx, end_idx = 0, n
 			
@@ -119,9 +121,10 @@ class GazeDataset(Dataset):
 		assert self.hdf.swmr_mode
 
 		image = self.hdf['face_patch'][idx, :]
-		gaze = self.hdf['face_gaze'][idx].astype('float') if 'face_gaze' in self.hdf else np.array([0,0]).astype('float')
-		head_pose = self.hdf['face_head_pose'][idx].astype('float') if 'face_head_pose' in self.hdf else np.array([0,0]).astype('float')
-
+		gaze = self.hdf['face_gaze'][idx].astype('float')
+		head_pose = self.hdf['face_head_pose'][idx].astype('float')
+		if self.dataset_name == 'mpiinv':
+			head_pose[0] *= -1
 		data = {
 			'img_0': self.preprocess_image(image),
 			'gt_gaze': gaze,
@@ -130,9 +133,10 @@ class GazeDataset(Dataset):
 		}
 		
 		if self.stereo:
-			gt_gaze_1 = self.hdf['face_gaze'][idx_b].astype('float') if 'face_gaze' in self.hdf else np.array([0,0]).astype('float')
-			head_pose_1 = self.hdf['face_head_pose'][idx_b].astype('float') if 'face_head_pose' in self.hdf else np.array([0,0]).astype('float')
-
+			gt_gaze_1 = self.hdf['face_gaze'][idx_b].astype('float')
+			head_pose_1 = self.hdf['face_head_pose'][idx_b].astype('float')
+			if self.dataset_name == 'mpiinv':
+				head_pose_1[0] *= -1
 			data.update({
 				'img_1': self.preprocess_image(self.hdf['face_patch'][idx_b, :]),
 				'gt_gaze_1': gt_gaze_1,

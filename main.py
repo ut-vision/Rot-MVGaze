@@ -63,31 +63,6 @@ mpiinv_subject = OmegaConf.load(osp.join(proj_dir, 'configs/subject/mpiinv.yaml'
 
 
 
-
-
-def recover_image( image_tensor, MEAN, STD):
-	"""
-	read a tensor and recover it to image in cv2 format
-	args:
-		image_tensor: [C, H, W] or [B, C, H, W]
-	return:
-		image_save: [B, H, W, C]
-	"""
-	if image_tensor.ndim == 3:
-		image_tensor = image_tensor.unsqueeze(0)
-
-	x = torch.mul(image_tensor, torch.FloatTensor(STD).view(3,1,1).to(image_tensor.device))
-	x = torch.add(x, torch.FloatTensor(MEAN).view(3,1,1).to(image_tensor.device) )
-	x = x.data.cpu().numpy()
-	# [C, H, W] -> [H, W, C]
-	image_rgb = np.transpose(x, (0, 2, 3, 1))
-	# RGB -> BGR
-	image_bgr = image_rgb[:, :, :, [2,1,0]]
-	# float -> int
-	image_save = np.clip(image_bgr*255, 0, 255).astype('uint8')
-
-	return image_save
-
 def get_parser(**parser_kwargs):
 	def str2bool(v):
 		if isinstance(v, bool):
@@ -153,66 +128,82 @@ def configure_dataset(exp_name):
 		camera_type_train, camera_type_test = 'novel_train', 'novel_test'
 
 	if dataset_setting == 'xgaze2mpiinv':
-		train_dataset = GazeDataset(dataset_path=data_path_dict['xgaze'],
-								color_type='bgr',
-								image_transform=augment_transform,
-								keys_to_use=xgaze_subject[:1],
-								camera_tag=camera_type_train,
-								stereo=True,
-								)
-		test_dataset = GazeDataset(dataset_path=data_path_dict['mpiinv'],
-									color_type='rgb',
-									image_transform=test_transform,
-									keys_to_use=mpiinv_subject[:1],
-									camera_tag=camera_type_test,
-									stereo=True,
-									)
+		train_dataset = GazeDataset(
+							dataset_name='xgaze',
+							dataset_path=data_path_dict['xgaze'],
+							color_type='bgr',
+							image_transform=augment_transform,
+							keys_to_use=xgaze_subject[:1],
+							camera_tag=camera_type_train,
+							stereo=True,
+							)
+		test_dataset = GazeDataset(
+							dataset_name='mpiinv',
+							dataset_path=data_path_dict['mpiinv'],
+							color_type='rgb',
+							image_transform=test_transform,
+							keys_to_use=mpiinv_subject[:1],
+							camera_tag=camera_type_test,
+							stereo=True,
+							)
 
 	elif dataset_setting == 'mpiinv2xgaze':
-		train_dataset = GazeDataset(dataset_path=data_path_dict['mpiinv'],
-								color_type='rgb',
-								image_transform=augment_transform,
-								keys_to_use=mpiinv_subject,
-								camera_tag=camera_type_train,
-								stereo=True,
-								)
-		test_dataset = GazeDataset(dataset_path=data_path_dict['xgaze'],
-									color_type='bgr',
-									image_transform=test_transform,
-									keys_to_use=xgaze_subject,
-									camera_tag=camera_type_test,
-									stereo=True,
-									)
+		train_dataset = GazeDataset(
+							dataset_name='mpiinv',
+							dataset_path=data_path_dict['mpiinv'],
+							color_type='rgb',
+							image_transform=augment_transform,
+							keys_to_use=mpiinv_subject,
+							camera_tag=camera_type_train,
+							stereo=True,
+							)
+		test_dataset = GazeDataset(
+							dataset_name='xgaze',
+							dataset_path=data_path_dict['xgaze'],
+							color_type='bgr',
+							image_transform=test_transform,
+							keys_to_use=xgaze_subject,
+							camera_tag=camera_type_test,
+							stereo=True,
+							)
 	elif dataset_setting == 'xgaze':
-		train_dataset = GazeDataset(dataset_path=data_path_dict['xgaze'],
-								color_type='bgr',
-								image_transform=augment_transform,
-								keys_to_use=xgaze_subject[:5],
-								camera_tag=camera_type_train,
-								stereo=True,
-								)
-		test_dataset = GazeDataset(dataset_path=data_path_dict['xgaze'],
-								color_type='bgr',
-								image_transform=test_transform,
-								keys_to_use=xgaze_subject[5:6],
-								camera_tag=camera_type_test,
-								stereo=True,
-								)
+		train_dataset = GazeDataset(
+							dataset_name='xgaze',
+							dataset_path=data_path_dict['xgaze'],
+							color_type='bgr',
+							image_transform=augment_transform,
+							keys_to_use=xgaze_subject[:5],
+							camera_tag=camera_type_train,
+							stereo=True,
+							)
+		test_dataset = GazeDataset(
+						dataset_name='xgaze',
+						dataset_path=data_path_dict['xgaze'],
+						color_type='bgr',
+						image_transform=test_transform,
+						keys_to_use=xgaze_subject[5:6],
+						camera_tag=camera_type_test,
+						stereo=True,
+						)
 	elif dataset_setting == 'mpiinv':
-		train_dataset = GazeDataset(dataset_path=data_path_dict['mpiinv'],
-								color_type='rgb',
-								image_transform=augment_transform,
-								keys_to_use=mpiinv_subject[:1],
-								camera_tag=camera_type_train,
-								stereo=True,
-								)
-		test_dataset = GazeDataset(dataset_path=data_path_dict['mpiinv'],
-								color_type='rgb',
-								image_transform=test_transform,
-								keys_to_use=mpiinv_subject[1:2],
-								camera_tag=camera_type_test,
-								stereo=True,
-								)
+		train_dataset = GazeDataset(
+						dataset_name='mpiinv',
+						dataset_path=data_path_dict['mpiinv'],
+						color_type='rgb',
+						image_transform=augment_transform,
+						keys_to_use=mpiinv_subject[:1],
+						camera_tag=camera_type_train,
+						stereo=True,
+						)
+		test_dataset = GazeDataset(
+						dataset_name='mpiinv',
+						dataset_path=data_path_dict['mpiinv'],
+						color_type='rgb',
+						image_transform=test_transform,
+						keys_to_use=mpiinv_subject[1:2],
+						camera_tag=camera_type_test,
+						stereo=True,
+						)
 	else:
 		raise NotImplementedError
 	return train_dataset, test_dataset
@@ -240,14 +231,13 @@ if __name__ == '__main__':
 	
 
 
-	model = FeatRotationSymm(backbone_depth=50, num_iter=3, 
+	model = FeatRotationSymm(backbone_depth=50, 
+								num_iter=3, 
 								  share_weights=False, 
 								  encode_rotmat=False, 
 								  share_feature=False, 
 								  ignore_rotmat=False)
 
-
-	
 
 	stereo_l1_loss = StereoL1Loss(rel_weight=0.01, reference_decay=1.0, distance_metric='angular_error', pred_gaze_key='pred_gaze')
 	metrics = IterationLoss(loss=stereo_l1_loss, iter_decay=0.5)
@@ -258,7 +248,6 @@ if __name__ == '__main__':
 		metrics=metrics,
 		train_loader=train_loader,
 		test_loader=test_loader,
-		# ckpt_resume=config.ckpt_resume,
 	)
 
 	if args.mode == 'train':

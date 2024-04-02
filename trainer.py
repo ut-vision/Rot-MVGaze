@@ -32,9 +32,7 @@ class Trainer(nn.Module):
 			  model, 
 			  metrics,
 			  train_loader, 
-			  test_loader,
-			  print_freq=50,
-			  ckpt_resume=None,):
+			  test_loader,):
 		super().__init__()
 
 		self.config = config
@@ -81,7 +79,7 @@ class Trainer(nn.Module):
 		os.makedirs(self.tensorboard_dir, exist_ok=True)
 		self.writer = SummaryWriter(log_dir=self.tensorboard_dir)
 
-		self.print_freq = print_freq
+		self.print_freq = config.print_freq
 
 	def train(self):
 		error = self.test(-1)
@@ -148,33 +146,6 @@ class Trainer(nn.Module):
 		self.scheduler.step()
 		
 
-	def test(self, epoch):
-
-		avg_error_gaze = AverageMeter()
-		self.model.eval()
-		for i, data in enumerate(track(self.test_loader, description='Testing', transient=True)):
-			data = self.prepare_dual_input(data)
-			data = self.model(data) 
-			pred_gaze = data["pred_gaze"]
-			gaze_var = data["gt_gaze"]
-			input_var = data["img_0"]
-			batch_size = input_var.size(0)
-
-			error_gaze = np.mean(angular_error(pred_gaze.cpu().data.numpy(), gaze_var.cpu().data.numpy()))
-			avg_error_gaze.update(error_gaze.item(), batch_size)
-
-			if i != 0 and i % self.print_freq == 0:
-				samples_to_show = min(8, batch_size)
-				self.writer.add_image( 'test/images_0', torchvision.utils.make_grid(data["img_0"][:samples_to_show], nrow=(samples_to_show//2), normalize=True), i)
-				self.writer.add_image( 'test/images_1', torchvision.utils.make_grid(data["img_1"][:samples_to_show], nrow=(samples_to_show//2), normalize=True), i)
-		
-		msg = 'test on epoch {}, error: {}\n'.format(epoch + 1, avg_error_gaze.avg)
-		print( msg )
-		self.writer.add_scalar('test/epoch_error_gaze', avg_error_gaze.avg, epoch)
-		with open(osp.join(self.output_dir, 'test_results.txt'), 'a') as f:
-			f.write(msg)
-		return avg_error_gaze.avg
-
 	def save_checkpoint(self, state, add=None):
 		"""
 		Save a copy of the model
@@ -187,4 +158,43 @@ class Trainer(nn.Module):
 		torch.save(state, ckpt_path)
 		print('save file to: ', ckpt_path)
 
+
+
+	def test(self, epoch):
+
+		self.model.eval()
+
+
+		pred_gaze_all = np.zeros((len(self.test_loader.dataset), 2))
+		gt_gaze_all = np.zeros((len(self.test_loader.dataset), 2))
+		save_index = 0
+
+		for i, data in enumerate(track(self.test_loader, description='Testing', transient=True)):
+			with torch.no_grad():
+				data = self.prepare_dual_input(data)
+				data = self.model(data) 
+
+			pred_gaze = data["pred_gaze"]
+			gaze_var = data["gt_gaze"]
+			input_var = data["img_0"]
+			batch_size = input_var.size(0)
+			if i != 0 and i % self.print_freq == 0:
+				samples_to_show = min(8, batch_size)
+				self.writer.add_image( 'test/images_0', torchvision.utils.make_grid(data["img_0"][:samples_to_show], nrow=(samples_to_show//2), normalize=True), i)
+				self.writer.add_image( 'test/images_1', torchvision.utils.make_grid(data["img_1"][:samples_to_show], nrow=(samples_to_show//2), normalize=True), i)
+				
+			pred_gaze_all[save_index:save_index + batch_size, :] = pred_gaze.cpu().data.numpy()
+			gt_gaze_all[save_index:save_index + batch_size, :] = gaze_var.cpu().data.numpy()
+			save_index += input_var.size(0)
+		if save_index != len(self.test_loader.dataset):
+			print('the test samples save_index ', save_index, ' is not equal to the whole test set ', len(self.test_loader.dataset))
+		avg_error_gaze = np.mean(angular_error(pred_gaze_all, gt_gaze_all))
+
+		msg = 'test on epoch {}, error: {}\n'.format(epoch + 1, avg_error_gaze)
+		print( msg )
+		self.writer.add_scalar('test/epoch_error_gaze', avg_error_gaze, epoch)
+		with open(osp.join(self.output_dir, 'test_results.txt'), 'a') as f:
+			f.write(msg)
+		return avg_error_gaze
+	
 
