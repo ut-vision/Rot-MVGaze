@@ -8,3 +8,5 @@ matplotlib
 h5py
 torchsummary
 numpy
+opencv-python
+glob2

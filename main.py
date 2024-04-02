@@ -30,7 +30,6 @@ from utils.helper import AverageMeter
 
 from dataset.gaze import GazeDataset
 from utils.augment import RandomMultiErasing
-
 from models.rot_mv import FeatRotationSymm
 from trainer import Trainer
 
