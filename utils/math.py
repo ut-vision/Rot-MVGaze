@@ -22,7 +22,7 @@ import torch
 from torch import nn
 from torch.utils.data import Dataset, Subset, DataLoader
 from torchvision import transforms
-import torchvision.transforms.functional as TF
+import torchvision.transforms.functional as F
 
 
 

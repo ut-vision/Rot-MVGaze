@@ -132,7 +132,7 @@ def configure_dataset(exp_name):
 							dataset_path=data_path_dict['xgaze'],
 							color_type='bgr',
 							image_transform=augment_transform,
-							keys_to_use=xgaze_subject[:1],
+							keys_to_use=xgaze_subject,
 							camera_tag=camera_type_train,
 							stereo=True,
 							)
@@ -141,7 +141,7 @@ def configure_dataset(exp_name):
 							dataset_path=data_path_dict['mpiinv'],
 							color_type='rgb',
 							image_transform=test_transform,
-							keys_to_use=mpiinv_subject[:1],
+							keys_to_use=mpiinv_subject,
 							camera_tag=camera_type_test,
 							stereo=True,
 							)
@@ -171,7 +171,7 @@ def configure_dataset(exp_name):
 							dataset_path=data_path_dict['xgaze'],
 							color_type='bgr',
 							image_transform=augment_transform,
-							keys_to_use=xgaze_subject[:5],
+							keys_to_use=xgaze_subject,
 							camera_tag=camera_type_train,
 							stereo=True,
 							)
@@ -180,7 +180,7 @@ def configure_dataset(exp_name):
 						dataset_path=data_path_dict['xgaze'],
 						color_type='bgr',
 						image_transform=test_transform,
-						keys_to_use=xgaze_subject[5:6],
+						keys_to_use=xgaze_subject,
 						camera_tag=camera_type_test,
 						stereo=True,
 						)
@@ -190,7 +190,7 @@ def configure_dataset(exp_name):
 						dataset_path=data_path_dict['mpiinv'],
 						color_type='rgb',
 						image_transform=augment_transform,
-						keys_to_use=mpiinv_subject[:1],
+						keys_to_use=mpiinv_subject,
 						camera_tag=camera_type_train,
 						stereo=True,
 						)
@@ -199,7 +199,7 @@ def configure_dataset(exp_name):
 						dataset_path=data_path_dict['mpiinv'],
 						color_type='rgb',
 						image_transform=test_transform,
-						keys_to_use=mpiinv_subject[1:2],
+						keys_to_use=mpiinv_subject,
 						camera_tag=camera_type_test,
 						stereo=True,
 						)
