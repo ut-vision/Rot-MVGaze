@@ -44,10 +44,10 @@ Download the pretrained checkpoints and run
 
 | Experiment | Model  | Path |
 | - | - | - |
-| XGaze to MPII-NV (known head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/1-j3jiW3oN0Hqbzz9BC58u-VXaNjL6uqf/view?usp=sharing) |
-| XGaze to MPII-NV (novel head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/1R5oU6tYno92pke9F1Kj9zHxB1l89I5nu/view?usp=sharing) |
-| MPII-NV to XGaze (known head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/1lESAPVbKjHp1v5V6fIQxoaWdQ3Pmi--6/view?usp=sharing) |
-| MPII-NV to XGaze (novel head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/1-zqoPL53y1UuOn1qgE_9dClrfhM8HKHR/view?usp=sharing) |
+| XGaze to MPII-NV (known head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/1pW_q6bZB6RWfFA7mwbI4JJH2jycgCroq/view?usp=sharing) |
+| XGaze to MPII-NV (novel head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/11ze-5r3Dq1VGID856Bi7JBK4xbuXUZPg/view?usp=sharing) |
+| MPII-NV to XGaze (known head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/1oY5lDGmJ0tyJQhPkuEdl5Y3NqXwNE2xv/view?usp=sharing) |
+| MPII-NV to XGaze (novel head pose) | Rot-MV | [Google Drive](https://drive.google.com/file/d/1x5yFR0mUZa4R67K8YnVm3-CFeF4DubUH/view?usp=sharing) |
 
 ```
 python main.py \
